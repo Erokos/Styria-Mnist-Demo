@@ -1,0 +1,41 @@
+version: "3"
+services:
+
+  tensorflow:
+    image: tensorflow/serving:1.8.0
+    ports:
+      - 8500:8500
+    networks:
+      - mnist_app_network
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints: [node.role == manager]
+
+  mnistApi:
+    image: mnist
+    networks:
+      - mnist_app_network
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints: [node.role == manager]
+
+networks:
+  frontend:
+  backend:
+
+volumes:
