@@ -82,5 +82,31 @@ The ELB.tf file describes the Elastic Load Balancer, our single point of contact
 
 Lastly, in the 'Dns.tf' the DNS is set and is linked to the ELB so that all traffic goes to it.
 
+In order for this to be set up the following commands should be executed:
+
+```
+terraform init
+```
+
+this will load the necessary plugins, you can then run:
+
+```
+terraform validate
+```
+
+to check for syntax errors before running:
+
+```
+terraform plan
+```
+
+and
+
+```
+terraform apply
+```
+
+to see what will be created and to create it if it's correct with the idea. This should set up the infrastructure.
+
 The project is still a work in progress but it could be on the right path...
 Thank you for reading :)
