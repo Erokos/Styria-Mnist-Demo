@@ -8,3 +8,4 @@ sh get-docker.sh
 docker pull tensorflow/serving:1.8.0
 git clone https://github.com/StyriaAI/mnist_model.git
 docker swarm init
+# Have to run a stack file in which I have the swarm described

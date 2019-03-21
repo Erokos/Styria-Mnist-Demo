@@ -9,8 +9,9 @@ resource "aws_security_group" "mnist_model" {
     to_port         = 8500
     protocol        = "tcp"
     # The only people that can communicate with this are
-    # instances within the security group
-    security_groups = ["${aws_security_group.mnist_model.id}"]
+    # instances within the security group and instances of the API
+    security_groups = ["${aws_security_group.mnist_model.id}",
+                       "${aws_security_group.mnist_allow_http.id}"]
   }
 
   # Allow access to anywhere
@@ -23,16 +24,19 @@ resource "aws_security_group" "mnist_model" {
   }
 }
 
-##############
-# MNIST Module
-##############
+#####################################################################
+# MNIST Module Autoscaling group with external launch configuration #
+#####################################################################
 
-# Use the AWS Database module
-resource "aws_instance" "mnist_model" {
+resource "aws_launch_configuration" "model-lc" {
+  name_prefix = "MNIST-model-lc-"
+  image_id = 
+  instance_type = "t2.micro"
+  şecurity_groups = ["${aws_security_group.mnist_model.id}"]
 
-  image_id        = "ami-059eeca93cf09eebd"
-  instance_type   = "t2.micro"
-  security_groups = ["${aws_security_group.mnist_model.id}"]
+  lifecycle {
+    create_before_destroy = true
+  }
 
   connection {
     user        = "ubuntu"
@@ -40,29 +44,31 @@ resource "aws_instance" "mnist_model" {
     private_key = "${file(var.pvt_key)}"
   }
 
-# Copy the entire frontend folder into the home directory 
-# of the user that is logged in: home/ubuntu/ in this case
   provisioner "file" {
-    source      = "~/proj"
+    source      = "C:\\Users\\Roman\\code\\Styria-Mnist-Demo\\model_execution_scripts"
     destination = "~/"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "chmod +x ~/proj/setup_docker_model.sh",
-      "sudo ~/proj/setup_docker_model.sh",
+      "chmod +x ~/model_execution_scripts/docker_setup_model.sh",
+      "cd ~/model_execution_scripts",
+      "sudo ~/model_execution_scripts/docker_setup_model.sh",
     ]
   }
+}
 
-  # At least 200 GB for production because of I/O speed
-  ebs_block_device = [
-    {
-      device_name           = "/dev/xvdz"
-      volume_type           = "gp2"
-      volume_size           = "200"
-      delete_on_termination = true
-    },
-  ]
+module "model-asg" {
+  source = "terraform-aws-modules/autoscaling/aws"
+
+  name = "MNIST-model-autoscaling"
+
+  # Launch configuration
+  launch_configuration = "${aws_launch_configuration.model-lc.name}"
+  create_lc = false
+
+  # Add instances to load balancer
+  load_balancers = ["${module.this_elb_id}"]
 
   root_block_device = [
     {
@@ -72,20 +78,29 @@ resource "aws_instance" "mnist_model" {
     },
   ]
 
-  # Auto scaling group
-  asg_name                  = "styria-asg"
-  # Pull the list of public subnets from the VPC module
-  vpc_zone_identifier       = ["${module.vpc.private_subnets}"]
-  health_check_type         = "EC2"
-  min_size                  = 1
-  max_size                  = 5
-  desired_capacity          = 2
+  # At least 200 GB for production because of I/O speed
+  ebs_block_device = [
+    {
+      device_name           = "/dev/xvdz"
+      volume_type           = "gp2"
+      volume_size           = "${terraform.workspace == "production" ? 200 : 50}"
+      delete_on_termination = true
+    },
+  ]
+
+  # Autoscaling group
+
+  asg_name = "MNIST-model-asg"
+  vpc_zone_identifier = ["${module.vpc.private_subnets}"]
+  min_size = 1
+  desired_capacity = 2
+  max_size = 3
   wait_for_capacity_timeout = 0
 
   tags = [
     {
       key                 = "Environment"
-      value               = "Production"
+      value               = "${terraform.workspace}"
       propagate_at_launch = true
     },
     {
@@ -94,4 +109,5 @@ resource "aws_instance" "mnist_model" {
       propagate_at_launch = true
     },
   ]
+  
 }

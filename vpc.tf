@@ -7,8 +7,13 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = "${local.workspace["region_name"]}"
 }
+
+data "aws_availability_zones" "azs" {
+  provider = "${aws.local.workspace["region_name"]}"
+}
+
 
 # Use the AWS module for VPCs
 module "vpc" {
@@ -18,15 +23,14 @@ module "vpc" {
 
   cidr = "10.10.0.0/16"
 
-  azs             = ["us-east-1b", "us-east-1c"]
+  azs             = ["${data.aws_availability_zones.azs.names[count.index]}"]
   public_subnets  = ["10.10.1.0/24", "10.10.2.0/24"]
   private_subnets = ["10.10.3.0/24", "10.10.4.0/24"]
 
   enable_nat_gateway = true
 
   tags = {
-    Owner       = "user"
-    Environment = "terraform.workspace"
-    Name        = "teffaform vpc styria"
+    Environment = "${terraform.workspace}"
+    Name        = "erokos-${terraform.workspace}"
   }
 }
