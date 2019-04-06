@@ -9,7 +9,7 @@ resource "aws_security_group" "mnist_allow_http" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    security_groups = ["${aws_security_group.mnist_model.id}"
+    security_groups = ["${aws_security_group.mnist_model.id}"]
   }
 
   egress {
@@ -20,37 +20,13 @@ resource "aws_security_group" "mnist_allow_http" {
   }
 }
 
-################################
-# Data source to get AMI details
-################################
-
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-
-  filter {
-    name = "name"
-
-    values = [
-      "amzn-ami-hvm-*-x86_64-gp2",
-    ]
-  }
-
-  filter {
-    name = "owner-alias"
-
-    values = [
-      "amazon",
-    ]
-  }
-}
-
 ##################################################################
 # MNIST API Autoscaling group with external launch configuration #
 ##################################################################
 
 resource "aws_launch_configuration" "api-lc" {
   name_prefix     = "MNIST-model-lc-"
-  image_id        = "${data.aws_ami.amazon_linux.id}"
+  image_id        = "${data.aws_ami.ubuntu.id}"
   instance_type   = "t2.micro"
   şecurity_groups = ["${aws_security_group.mnist_model.id}", "${aws_security_group.mnist_allow_http.id}"]
 
@@ -74,7 +50,7 @@ resource "aws_launch_configuration" "api-lc" {
   provisioner "remote-exec" {
     inline = [
       "chmod +x ~/api_execution_scripts/setup_docker_api.sh",
-      "sudo ~/api_execution_scripts/setup_docker_api.sh",
+      "sudo ~/api_execution_scripts/setup_docker_api.sh || ~/api_execution_scripts/setup_docker_api.sh",
     ]
   }
 }

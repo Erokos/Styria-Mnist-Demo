@@ -24,13 +24,29 @@ resource "aws_security_group" "mnist_model" {
   }
 }
 
+data "aws_ami" "ubuntu" {
+    most_recent = true
+
+    filter {
+        name   = "name"
+        values = ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-*"]
+    }
+
+    filter {
+        name   = "virtualization-type"
+        values = ["hvm"]
+    }
+
+    owners = ["099720109477"] # Canonical
+}
+
 #####################################################################
 # MNIST Module Autoscaling group with external launch configuration #
 #####################################################################
 
 resource "aws_launch_configuration" "model-lc" {
   name_prefix = "MNIST-model-lc-"
-  image_id = 
+  image_id = "${data.aws_ami.ubuntu.id}"
   instance_type = "t2.micro"
   şecurity_groups = ["${aws_security_group.mnist_model.id}"]
 
@@ -53,7 +69,7 @@ resource "aws_launch_configuration" "model-lc" {
     inline = [
       "chmod +x ~/model_execution_scripts/docker_setup_model.sh",
       "cd ~/model_execution_scripts",
-      "sudo ~/model_execution_scripts/docker_setup_model.sh",
+      "sudo ~/model_execution_scripts/docker_setup_model.sh || ~/model_execution_scripts/docker_setup_model.sh ",
     ]
   }
 }
@@ -93,7 +109,7 @@ module "model-asg" {
   asg_name = "MNIST-model-asg"
   vpc_zone_identifier = ["${module.vpc.private_subnets}"]
   min_size = 1
-  desired_capacity = 2
+  desired_capacity = 1
   max_size = 3
   wait_for_capacity_timeout = 0
 
